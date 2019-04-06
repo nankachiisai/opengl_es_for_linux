@@ -2,6 +2,7 @@
 
 in vec3 position;
 in vec3 normal;
+out vec3 fg_normal;
 uniform mat4 transformMatrix;
 
 void main(void) {

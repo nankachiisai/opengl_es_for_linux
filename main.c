@@ -47,6 +47,7 @@ static bunny b;
 static GLuint program;
 GLuint VBO; // Vertex Buffer Object
 GLuint IBO; // Index Buffer Object
+GLuint normalVector;
 
 int main(int argc, char *argv[]) {
 	GLenum err;
@@ -98,10 +99,12 @@ int main(int argc, char *argv[]) {
 
 	// データをGPUに転送する
 	transferData(b.vertices, b.vertexNum, GL_ARRAY_BUFFER, &VBO);
+	transferData(b.normalVectors, b.vectorNum, GL_ARRAY_BUFFER, &normalVector);
 	transferData(b.vertexIndices, b.indexNum, GL_ELEMENT_ARRAY_BUFFER, &IBO);
 
 	// VBOとバーテックスシェーダのin変数とを関連付ける
 	bindAttributeVariable(program, VBO, "position");
+	bindAttributeVariable(program, normalVector, "normal");
 
 	// メインループ
 	glutMainLoop();
@@ -485,7 +488,7 @@ static int loadBunny(char *filename, bunny *b) {
 		vectors[3 * i + 2] = normal[2];
 	}
 
-	// 頂点法線ベクトル配列を確保する。833,412バイト必要。
+	// 頂点法線ベクトル配列を確保する。431,364バイト必要。
 	// 使用後、freeすること。
 	const int normNum = vertNum;
 	vertNormals = (float *) malloc(sizeof(float) * vecNum);
@@ -494,9 +497,70 @@ static int loadBunny(char *filename, bunny *b) {
 	}
 
 	// 頂点法線ベクトルを求める
-	for (int i = 0; i < normNum / 3; i++) {
-		// あとで書く
+	unsigned int **point = (unsigned int **) malloc(sizeof(unsigned int*) * vertNum);
+	unsigned int *pointNum = (unsigned int *) malloc(sizeof(unsigned int) * vertNum);
+	for (int i = 0; i < vertNum; i++) {
+		point[i] = NULL;
+		pointNum[i] = 0;
 	}
+
+	for (int i = 0; i < idxNum / 3; i++) {
+		unsigned int p1 = indices[3 * i + 0];
+		unsigned int p2 = indices[3 * i + 1];
+		unsigned int p3 = indices[3 * i + 2];
+
+		if (point[p1] == NULL) {
+			point[p1] = (unsigned int *) malloc(sizeof(unsigned int) * 10);
+			if (point[p1] == NULL) {
+				return -1;
+			}
+		}
+		point[p1][pointNum[p1]] = i;
+		pointNum[p1]++;
+
+		if (point[p2] == NULL) {
+			point[p2] = (unsigned int *) malloc(sizeof(unsigned int) * 10);
+			if (point[p2] == NULL) {
+				return -1;
+			}
+		}
+		point[p2][pointNum[p2]] = i;
+		pointNum[p2]++;
+
+		if (point[p3] == NULL) {
+			point[p3] = (unsigned int *) malloc(sizeof(unsigned int) * 10);
+			if (point[p3] == NULL) {
+				return -1;
+			}
+		}
+		point[p3][pointNum[p3]] = i;
+		pointNum[p3]++;
+	}
+
+	for (int i = 0; i < normNum / 3; i++) {
+		for (int j = 0; j < pointNum[i]; j++) {
+			vertNormals[3 * i + 0] += vectors[3 * point[i][j] + 0];
+			vertNormals[3 * i + 1] += vectors[3 * point[i][j] + 1];
+			vertNormals[3 * i + 2] += vectors[3 * point[i][j] + 2];
+		}
+
+		float norm = sqrt(vertNormals[3 * i + 0] * vertNormals[3 * i + 0] +
+		                  vertNormals[3 * i + 1] * vertNormals[3 * i + 1] + 
+		                  vertNormals[3 * i + 2] + vertNormals[3 * i + 2]);
+		vertNormals[3 * i + 0] /= norm;
+		vertNormals[3 * i + 1] /= norm;
+		vertNormals[3 * i + 2] /= norm;
+	}
+
+	// point, pointNumをfreeする
+	for (int i = 0; i < vertNum; i++) {
+		free(point[i]);
+		point[i] = NULL;
+	}
+	free(pointNum);
+	pointNum = NULL;
+	free(point);
+	point = NULL;
 
 	// 面法線ベクトル配列は不要なので、freeする
 	free(vectors);
