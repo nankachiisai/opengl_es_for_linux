@@ -151,7 +151,7 @@ static void display(void) {
 
 	// 変換行列をuniform変数に関連付ける
 	multiply4x4(rotationMatrix, expantionMatrix, transformMatrix);
-	multiply4x4(orthogonalMatrix, LookAtMatrix, tmpMatrix);
+	multiply4x4(LookAtMatrix, orthogonalMatrix, tmpMatrix);
 	multiply4x4(tmpMatrix, transformMatrix, resultMatrix);
 	bindUniformVariable4x4(program, resultMatrix, "transformMatrix");
 
@@ -355,6 +355,8 @@ static int loadBunny(char *filename, bunny *b) {
 	int tmp, ix, iy, iz;
 	float *vertices;
 	int *indices;
+	float *vectors;
+	float *vertNormals;
 
 	//ファイルオープン
 	fp = fopen(filename, "r");
@@ -393,7 +395,7 @@ static int loadBunny(char *filename, bunny *b) {
 	free(buf);
 
 	// 頂点配列を確保する。35947 * 3 * 4 = 431,364バイト必要。
-	// 頂点配列は、使用後、freeすること。
+	// 使用後、freeすること。
 	const int vertNum = 35947 * 3; // 要素数
 	vertices = malloc(sizeof(float) * vertNum);
 	if (vertices == NULL) {
@@ -409,7 +411,7 @@ static int loadBunny(char *filename, bunny *b) {
 	}
 
 	// 頂点インデックス配列を確保する。69451 * 3 * 4 = 833,412バイト必要。
-	// 頂点インデックス配列は、使用後、freeすること。
+	// 使用後、freeすること。
 	const int idxNum = 69451 * 3;	// 要素数
 	indices = malloc(sizeof(unsigned int) * idxNum);
 	if (indices == NULL) {
@@ -431,6 +433,75 @@ static int loadBunny(char *filename, bunny *b) {
 	}
 	fp = NULL;
 
+	// 面法線ベクトル配列を確保する。833,412バイト必要。
+	// 使用後、freeすること。
+	const int vecNum = idxNum;
+	vectors = (float *) malloc(sizeof(float) * vecNum);
+	if (vectors == NULL) {
+		return -1;
+	}
+
+	// 面法線ベクトルを三角形から計算する
+	for (int i = 0; i < vecNum / 3; i++) {
+		float point1[3] = {
+			vertices[indices[3 * i + 0] + 0],
+			vertices[indices[3 * i + 0] + 1],
+			vertices[indices[3 * i + 0] + 2]
+		};
+		float point2[3] = {
+			vertices[indices[3 * i + 1] + 0],
+			vertices[indices[3 * i + 1] + 1],
+			vertices[indices[3 * i + 1] + 2]
+		};
+		float point3[3] = {
+			vertices[indices[3 * i + 2] + 0],
+			vertices[indices[3 * i + 2] + 1],
+			vertices[indices[3 * i + 2] + 2]
+		};
+
+		float vec1[3] = {
+			point2[0] - point1[0],
+			point2[1] - point1[1],
+			point2[2] - point1[2]
+		};
+		float vec2[3] = {
+			point3[0] - point2[0],
+			point3[1] - point2[1],
+			point3[2] - point2[2]
+		};
+
+		float normal[3] = {
+			vec1[1] * vec2[2] - vec1[2] * vec2[1],
+			vec1[0] * vec2[2] - vec1[2] * vec2[0],
+			vec1[0] * vec2[1] - vec1[0] * vec2[1]
+		};
+		float length = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+		normal[0] /= length;
+		normal[1] /= length;
+		normal[2] /= length;
+
+		vectors[3 * i + 0] = normal[0];
+		vectors[3 * i + 1] = normal[1];
+		vectors[3 * i + 2] = normal[2];
+	}
+
+	// 頂点法線ベクトル配列を確保する。833,412バイト必要。
+	// 使用後、freeすること。
+	const int normNum = vertNum;
+	vertNormals = (float *) malloc(sizeof(float) * vecNum);
+	if (vectors == NULL) {
+		return -1;
+	}
+
+	// 頂点法線ベクトルを求める
+	for (int i = 0; i < normNum / 3; i++) {
+		// あとで書く
+	}
+
+	// 面法線ベクトル配列は不要なので、freeする
+	free(vectors);
+	vectors = NULL;
+
 	// 頂点配列を返す
 	b->vertices = vertices;
 	b->vertexNum = vertNum;
@@ -438,6 +509,10 @@ static int loadBunny(char *filename, bunny *b) {
 	// 頂点インデックス配列を返す
 	b->vertexIndices = indices;
 	b->indexNum = idxNum;
+
+	// 法線ベクトル配列を返す
+	b->normalVectors = vertNormals;
+	b->vectorNum = normNum;
 
 	return 0;
 }
@@ -450,6 +525,10 @@ static int freeBunny(bunny *b) {
 	free(b->vertexIndices);
 	b->vertexIndices = NULL;
 	b->indexNum = 0;
+
+	free(b->normalVectors);
+	b->normalVectors = NULL;
+	b->vectorNum = 0;
 
 	return 0;
 }

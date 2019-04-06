@@ -1,6 +1,7 @@
 #version 300 es
 
 in vec3 position;
+in vec3 normal;
 uniform mat4 transformMatrix;
 
 void main(void) {
