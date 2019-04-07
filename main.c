@@ -513,7 +513,7 @@ static int loadBunny(char *filename, bunny *b) {
 		unsigned int p3 = indices[3 * i + 2];
 
 		if (point[p1] == NULL) {
-			point[p1] = (unsigned int *) malloc(sizeof(unsigned int) * 10);
+			point[p1] = (unsigned int *) malloc(sizeof(unsigned int) * 100);
 			if (point[p1] == NULL) {
 				return -1;
 			}
@@ -522,7 +522,7 @@ static int loadBunny(char *filename, bunny *b) {
 		pointNum[p1]++;
 
 		if (point[p2] == NULL) {
-			point[p2] = (unsigned int *) malloc(sizeof(unsigned int) * 10);
+			point[p2] = (unsigned int *) malloc(sizeof(unsigned int) * 100);
 			if (point[p2] == NULL) {
 				return -1;
 			}
@@ -531,7 +531,7 @@ static int loadBunny(char *filename, bunny *b) {
 		pointNum[p2]++;
 
 		if (point[p3] == NULL) {
-			point[p3] = (unsigned int *) malloc(sizeof(unsigned int) * 10);
+			point[p3] = (unsigned int *) malloc(sizeof(unsigned int) * 100);
 			if (point[p3] == NULL) {
 				return -1;
 			}
