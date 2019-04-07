@@ -1,3 +1,3 @@
 #!/bin/bash
 
-gcc -o main main.c -lm -lGL -lGLEW -lglut
+g++ -o main main.cpp vec3.cpp -lm -lGL -lGLEW -lglut
