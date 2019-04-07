@@ -8,6 +8,7 @@
 #include <math.h>
 #include <string.h>
 #include "bunny.h"
+#include "vec3.h"
 
 static void display(void);
 static void idle(void);
@@ -449,46 +450,30 @@ static int loadBunny(const char *filename, bunny *b) {
 
 	// 面法線ベクトルを三角形から計算する
 	for (int i = 0; i < vecNum / 3; i++) {
-		float point1[3] = {
-			vertices[indices[3 * i + 0] + 0],
-			vertices[indices[3 * i + 0] + 1],
-			vertices[indices[3 * i + 0] + 2]
-		};
-		float point2[3] = {
-			vertices[indices[3 * i + 1] + 0],
-			vertices[indices[3 * i + 1] + 1],
-			vertices[indices[3 * i + 1] + 2]
-		};
-		float point3[3] = {
-			vertices[indices[3 * i + 2] + 0],
-			vertices[indices[3 * i + 2] + 1],
-			vertices[indices[3 * i + 2] + 2]
-		};
+		vec3 point1, point2, point3;
+		point1.x = vertices[indices[3 * i + 0] + 0];
+		point1.y = vertices[indices[3 * i + 0] + 1];
+		point1.z = vertices[indices[3 * i + 0] + 2];
 
-		float vec1[3] = {
-			point2[0] - point1[0],
-			point2[1] - point1[1],
-			point2[2] - point1[2]
-		};
-		float vec2[3] = {
-			point3[0] - point2[0],
-			point3[1] - point2[1],
-			point3[2] - point2[2]
-		};
+		point2.x = vertices[indices[3 * i + 1] + 0];
+		point2.y = vertices[indices[3 * i + 1] + 1];
+		point2.z = vertices[indices[3 * i + 1] + 2];
 
-		float normal[3] = {
-			vec1[1] * vec2[2] - vec1[2] * vec2[1],
-			vec1[0] * vec2[2] - vec1[2] * vec2[0],
-			vec1[0] * vec2[1] - vec1[0] * vec2[1]
-		};
-		float length = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-		normal[0] /= length;
-		normal[1] /= length;
-		normal[2] /= length;
+		point3.x = vertices[indices[3 * i + 2] + 0];
+		point3.y = vertices[indices[3 * i + 2] + 1];
+		point3.z = vertices[indices[3 * i + 2] + 2];
 
-		vectors[3 * i + 0] = normal[0];
-		vectors[3 * i + 1] = normal[1];
-		vectors[3 * i + 2] = normal[2];
+		vec3 vec1, vec2;
+		vec1.subtract(point2, point1);
+		vec2.subtract(point3, point2);
+
+		vec3 normal;
+		normal.cross(vec1, vec2);
+		normal.normalize(normal);
+
+		vectors[3 * i + 0] = normal.x;
+		vectors[3 * i + 1] = normal.y;
+		vectors[3 * i + 2] = normal.z;
 	}
 
 	// 頂点法線ベクトル配列を確保する。431,364バイト必要。
@@ -547,9 +532,9 @@ static int loadBunny(const char *filename, bunny *b) {
 			vertNormals[3 * i + 2] += vectors[3 * point[i][j] + 2];
 		}
 
-		float norm = sqrt(vertNormals[3 * i + 0] * vertNormals[3 * i + 0] +
-		                  vertNormals[3 * i + 1] * vertNormals[3 * i + 1] + 
-		                  vertNormals[3 * i + 2] + vertNormals[3 * i + 2]);
+		float norm = sqrtf(vertNormals[3 * i + 0] * vertNormals[3 * i + 0] +
+		                   vertNormals[3 * i + 1] * vertNormals[3 * i + 1] + 
+		                   vertNormals[3 * i + 2] + vertNormals[3 * i + 2]);
 		vertNormals[3 * i + 0] /= norm;
 		vertNormals[3 * i + 1] /= norm;
 		vertNormals[3 * i + 2] /= norm;
