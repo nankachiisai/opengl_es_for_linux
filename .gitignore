@@ -4,6 +4,12 @@ GTAGS
 main
 *.code-workspace
 .vscode/
+<<<<<<< HEAD
+.vs/
+packages/
+x64/
+=======
 Debug
 packages
 .vs/
+>>>>>>> master
