@@ -11,13 +11,13 @@
 
 static void display(void);
 static void idle(void);
-static int getShaderSource(char *fileName, GLenum shaderType, GLuint *compiledProgram);
+static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *compiledProgram);
 static int useShaders(GLuint VertShader, GLuint FragShader, GLuint *program);
 static int freeShaders(GLuint VertShader, GLuint FragShader, GLuint program);
 static int transferData(void *data, int num, GLenum bufferType, GLuint *buffer);
-static int bindAttributeVariable(GLuint program, GLuint VBO, char *name);
-static int bindUniformVariable4x4(GLuint program, float *data, char *name);
-static int loadBunny(char *filename, bunny *b);
+static int bindAttributeVariable(GLuint program, GLuint VBO, const char *name);
+static int bindUniformVariable4x4(GLuint program, float *data, const char *name);
+static int loadBunny(const char *filename, bunny *b);
 static int freeBunny(bunny *b);
 static void multiply4x4(float A[16], float B[16], float AB[16]); // A * B = AB
 static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, float Matrix[16]);
@@ -180,8 +180,7 @@ void idle(void) {
 	glutPostRedisplay();
 }
 
-static int getShaderSource(char *fileName, GLenum shaderType, GLuint *compiledProgram) {
-	char *source;
+static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *compiledProgram) {
 	int capacity = 1024;
 	int usage = 0;
 	FILE *fp;
@@ -192,7 +191,7 @@ static int getShaderSource(char *fileName, GLenum shaderType, GLuint *compiledPr
 	GLsizei length;
 
 	// とりあえず1KB確保
-	source = malloc(sizeof(char) * capacity);
+	char *source = (char *) malloc(sizeof(char) * capacity);
 	if (source == NULL) {
 		printf("Error: malloc\n");
 		return -1;
@@ -213,7 +212,7 @@ static int getShaderSource(char *fileName, GLenum shaderType, GLuint *compiledPr
 		if (capacity == usage) {
 			char *tmpp;
 
-			tmpp = realloc(source, capacity * 2);
+			tmpp = (char *) realloc(source, capacity * 2);
 			if (tmpp == NULL) {
 				printf("Error: realloc\n");
 				return -1;
@@ -248,7 +247,8 @@ static int getShaderSource(char *fileName, GLenum shaderType, GLuint *compiledPr
 	shader = glCreateShader(shaderType);
 
 	// コンパイル
-	glShaderSource(shader, 1, &source, &usage);
+	const char* src = source;
+	glShaderSource(shader, 1, &src, &usage);
 	glCompileShader(shader);
 
 	// コンパイルステータスをgetする
@@ -324,7 +324,7 @@ static int transferData(void *data, int num, GLenum bufferType, GLuint *buffer) 
 	return 0;
 }
 
-static int bindAttributeVariable(GLuint program, GLuint VBO, char *name) {
+static int bindAttributeVariable(GLuint program, GLuint VBO, const char *name) {
 	GLint attr;
 
 	// VBOをバインドする
@@ -338,7 +338,7 @@ static int bindAttributeVariable(GLuint program, GLuint VBO, char *name) {
 	return 0;
 }
 
-static int bindUniformVariable4x4(GLuint program, float *data, char *name) {
+static int bindUniformVariable4x4(GLuint program, float *data, const char *name) {
 	GLint uniform;
 
 	// uniform変数の場所をgetする
@@ -350,7 +350,7 @@ static int bindUniformVariable4x4(GLuint program, float *data, char *name) {
 	return 0;
 }
 
-static int loadBunny(char *filename, bunny *b) {
+static int loadBunny(const char *filename, bunny *b) {
 	FILE *fp;
 	char *fgetsReturn;
 	int fcloseReturn;
@@ -360,7 +360,7 @@ static int loadBunny(char *filename, bunny *b) {
 	float x, y, z, confidence, intensity;
 	int tmp, ix, iy, iz;
 	float *vertices;
-	int *indices;
+	unsigned int *indices;
 	float *vectors;
 	float *vertNormals;
 
@@ -403,7 +403,7 @@ static int loadBunny(char *filename, bunny *b) {
 	// 頂点配列を確保する。35947 * 3 * 4 = 431,364バイト必要。
 	// 使用後、freeすること。
 	const int vertNum = 35947 * 3; // 要素数
-	vertices = malloc(sizeof(float) * vertNum);
+	vertices = (float *) malloc(sizeof(float) * vertNum);
 	if (vertices == NULL) {
 		return -1;
 	}
@@ -419,7 +419,7 @@ static int loadBunny(char *filename, bunny *b) {
 	// 頂点インデックス配列を確保する。69451 * 3 * 4 = 833,412バイト必要。
 	// 使用後、freeすること。
 	const int idxNum = 69451 * 3;	// 要素数
-	indices = malloc(sizeof(unsigned int) * idxNum);
+	indices = (unsigned int *) malloc(sizeof(unsigned int) * idxNum);
 	if (indices == NULL) {
 		return -1;
 	}
