@@ -4,3 +4,6 @@ GTAGS
 main
 *.code-workspace
 .vscode/
+Debug
+packages
+.vs/
