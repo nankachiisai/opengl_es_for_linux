@@ -4,3 +4,6 @@ GTAGS
 main
 *.code-workspace
 .vscode/
+.vs/
+packages/
+x64/
