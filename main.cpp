@@ -7,8 +7,11 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <vector>
 #include "bunny.h"
 #include "vec3.h"
+
+using namespace std;
 
 static void display(void);
 static void idle(void);
@@ -24,7 +27,7 @@ static void multiply4x4(float A[16], float B[16], float AB[16]); // A * B = AB
 static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, float Matrix[16]);
 static void createLookAt(float position[3], float orientation[3], float up[3], float Matrix[16]);
 
-const double PI = 3.14159;
+const float PI = 3.14159f;
 
 static float vertices[] = {
 	-1.0f, 0.0f, 0.0f,
@@ -128,8 +131,8 @@ int main(int argc, char *argv[]) {
 }
 
 static void display(void) {
-	static double degree = 0.0;
-	double rad;
+	static float degree = 0.0;
+	float rad;
 	GLfloat white[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	GLfloat transformMatrix[16];
 	GLfloat orthogonalMatrix[16];
@@ -151,10 +154,10 @@ static void display(void) {
 
 	// 回転行列を生成する
 	rad = degree * PI / 180.0;
-	rotationMatrix[0] = cos(rad);
-	rotationMatrix[2] = sin(rad);
-	rotationMatrix[8] = -sin(rad);
-	rotationMatrix[10] = cos(rad);
+	rotationMatrix[0] = cosf(rad);
+	rotationMatrix[2] = sinf(rad);
+	rotationMatrix[8] = -sinf(rad);
+	rotationMatrix[10] = cosf(rad);
 
 	// 変換行列をuniform変数に関連付ける
 	multiply4x4(rotationMatrix, expantionMatrix, transformMatrix);
@@ -171,7 +174,7 @@ static void display(void) {
 		degree = 0.0;
 	}
 	else {
-		degree += 0.01;
+		degree += 0.01f;
 	}
 
 	return;
@@ -362,7 +365,6 @@ static int loadBunny(const char *filename, bunny *b) {
 	int tmp, ix, iy, iz;
 	float *vertices;
 	unsigned int *indices;
-	float *vectors;
 	float *vertNormals;
 
 	//ファイルオープン
@@ -373,7 +375,7 @@ static int loadBunny(const char *filename, bunny *b) {
 	}
 
 	// 読み取り用バッファを1KB確保
-	buf = (char *) malloc(sizeof(char) * 1024);
+	buf = new char[1024];
 	if (buf == NULL) {
 		printf("Error: malloc");
 		return -1;
@@ -399,12 +401,12 @@ static int loadBunny(const char *filename, bunny *b) {
 	}
 
 	// 読み取り用バッファをfreeする
-	free(buf);
+	delete[] buf;
 
 	// 頂点配列を確保する。35947 * 3 * 4 = 431,364バイト必要。
 	// 使用後、freeすること。
 	const int vertNum = 35947 * 3; // 要素数
-	vertices = (float *) malloc(sizeof(float) * vertNum);
+	vertices = new float[vertNum];
 	if (vertices == NULL) {
 		return -1;
 	}
@@ -420,7 +422,7 @@ static int loadBunny(const char *filename, bunny *b) {
 	// 頂点インデックス配列を確保する。69451 * 3 * 4 = 833,412バイト必要。
 	// 使用後、freeすること。
 	const int idxNum = 69451 * 3;	// 要素数
-	indices = (unsigned int *) malloc(sizeof(unsigned int) * idxNum);
+	indices = new unsigned int[idxNum];
 	if (indices == NULL) {
 		return -1;
 	}
@@ -440,16 +442,10 @@ static int loadBunny(const char *filename, bunny *b) {
 	}
 	fp = NULL;
 
-	// 面法線ベクトル配列を確保する。833,412バイト必要。
-	// 使用後、freeすること。
-	const int vecNum = idxNum;
-	vectors = (float *) malloc(sizeof(float) * vecNum);
-	if (vectors == NULL) {
-		return -1;
-	}
-
 	// 面法線ベクトルを三角形から計算する
-	for (int i = 0; i < vecNum / 3; i++) {
+	vec3 *surfNormals = new vec3[idxNum / 3];
+
+	for (int i = 0; i < idxNum / 3; i++) {
 		vec3 point1, point2, point3;
 		point1.x = vertices[indices[3 * i + 0] + 0];
 		point1.y = vertices[indices[3 * i + 0] + 1];
@@ -469,90 +465,51 @@ static int loadBunny(const char *filename, bunny *b) {
 
 		vec3 normal;
 		normal.cross(vec1, vec2);
-		normal.normalize(normal);
+		normal.normalize();
 
-		vectors[3 * i + 0] = normal.x;
-		vectors[3 * i + 1] = normal.y;
-		vectors[3 * i + 2] = normal.z;
+		surfNormals[i].x = normal.x;
+		surfNormals[i].y = normal.y;
+		surfNormals[i].z = normal.z;
 	}
 
 	// 頂点法線ベクトル配列を確保する。431,364バイト必要。
 	// 使用後、freeすること。
 	const int normNum = vertNum;
-	vertNormals = (float *) malloc(sizeof(float) * vecNum);
-	if (vectors == NULL) {
-		return -1;
-	}
+	vertNormals = new float[vertNum];
 
 	// 頂点法線ベクトルを求める
-	unsigned int **point = (unsigned int **) malloc(sizeof(unsigned int*) * vertNum);
-	unsigned int *pointNum = (unsigned int *) malloc(sizeof(unsigned int) * vertNum);
-	for (int i = 0; i < vertNum; i++) {
-		point[i] = NULL;
-		pointNum[i] = 0;
-	}
+	vector<vector<unsigned int>> point(vertNum, vector<unsigned int>(10, 0));
 
 	for (int i = 0; i < idxNum / 3; i++) {
 		unsigned int p1 = indices[3 * i + 0];
 		unsigned int p2 = indices[3 * i + 1];
 		unsigned int p3 = indices[3 * i + 2];
 
-		if (point[p1] == NULL) {
-			point[p1] = (unsigned int *) malloc(sizeof(unsigned int) * 100);
-			if (point[p1] == NULL) {
-				return -1;
-			}
-		}
-		point[p1][pointNum[p1]] = i;
-		pointNum[p1]++;
-
-		if (point[p2] == NULL) {
-			point[p2] = (unsigned int *) malloc(sizeof(unsigned int) * 100);
-			if (point[p2] == NULL) {
-				return -1;
-			}
-		}
-		point[p2][pointNum[p2]] = i;
-		pointNum[p2]++;
-
-		if (point[p3] == NULL) {
-			point[p3] = (unsigned int *) malloc(sizeof(unsigned int) * 100);
-			if (point[p3] == NULL) {
-				return -1;
-			}
-		}
-		point[p3][pointNum[p3]] = i;
-		pointNum[p3]++;
+		point[p1].push_back(i);
+		point[p2].push_back(i);
+		point[p3].push_back(i);
 	}
 
 	for (int i = 0; i < normNum / 3; i++) {
-		for (int j = 0; j < pointNum[i]; j++) {
-			vertNormals[3 * i + 0] += vectors[3 * point[i][j] + 0];
-			vertNormals[3 * i + 1] += vectors[3 * point[i][j] + 1];
-			vertNormals[3 * i + 2] += vectors[3 * point[i][j] + 2];
+		vec3 vertNormal(0.0f, 0.0f, 0.0f);
+
+		for (unsigned int j = 0; j < point[i].size(); j++) {
+			vec3 tmp(surfNormals[point[i][j]].x, 
+			         surfNormals[point[i][j]].y, 
+			         surfNormals[point[i][j]].z);
+			vertNormal.add(vertNormal, tmp);
 		}
 
-		float norm = sqrtf(vertNormals[3 * i + 0] * vertNormals[3 * i + 0] +
-		                   vertNormals[3 * i + 1] * vertNormals[3 * i + 1] + 
-		                   vertNormals[3 * i + 2] + vertNormals[3 * i + 2]);
-		vertNormals[3 * i + 0] /= norm;
-		vertNormals[3 * i + 1] /= norm;
-		vertNormals[3 * i + 2] /= norm;
+		vertNormal.normalize();
+
+		vertNormals[3 * i + 0] = vertNormal.x;
+		vertNormals[3 * i + 1] = vertNormal.y;
+		vertNormals[3 * i + 2] = vertNormal.z;
 	}
 
-	// point, pointNumをfreeする
-	for (int i = 0; i < vertNum; i++) {
-		free(point[i]);
-		point[i] = NULL;
-	}
-	free(pointNum);
-	pointNum = NULL;
-	free(point);
-	point = NULL;
-
-	// 面法線ベクトル配列は不要なので、freeする
-	free(vectors);
-	vectors = NULL;
+	// 面法線ベクトル配列をfreeする
+	delete[] surfNormals;
+	surfNormals = NULL;
 
 	// 頂点配列を返す
 	b->vertices = vertices;
@@ -570,15 +527,15 @@ static int loadBunny(const char *filename, bunny *b) {
 }
 
 static int freeBunny(bunny *b) {
-	free(b->vertices);
+	delete[] b->vertices;
 	b->vertices = NULL;
 	b->vertexNum = 0;
 
-	free(b->vertexIndices);
+	delete[] b->vertexIndices;
 	b->vertexIndices = NULL;
 	b->indexNum = 0;
 
-	free(b->normalVectors);
+	delete[] b->normalVectors;
 	b->normalVectors = NULL;
 	b->vectorNum = 0;
 
