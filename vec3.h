@@ -19,7 +19,7 @@ public:
 	error normalize();
 
 private:
-	const float err = 0.01;
+	const float err = 0.001f;
 };
 
 #endif

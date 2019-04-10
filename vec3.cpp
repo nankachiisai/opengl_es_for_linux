@@ -2,7 +2,9 @@
 #include "vec3.h"
 
 vec3::vec3() {
-	
+	this->x = 0.0f;
+	this->y = 0.0f;
+	this->z = 0.0f;
 }
 
 vec3::vec3(float x, float y, float z) {
