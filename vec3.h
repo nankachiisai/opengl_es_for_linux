@@ -7,14 +7,16 @@ public:
 
 	typedef enum {
 		SUCCESS = 0,
-		ZERO_DIVIDED = 1
+		ZERO_DIVIDE = 1
 	} error;
 
-	void add(vec3 &a, vec3 &b);
-	void subtract(vec3 &a, vec3 &b);
-	float dot(vec3 &a, vec3 &b);
-	void cross(vec3 &a, vec3 &b);
-	error normalize(vec3 &a);
+	vec3();
+	vec3(float x, float y, float z);
+	void add(const vec3 &a, const vec3 &b);
+	void subtract(const vec3 &a, const vec3 &b);
+	float dot(const vec3 &a, const vec3 &b);
+	void cross(const vec3 &a, const vec3 &b);
+	error normalize();
 
 private:
 	const float err = 0.01;
