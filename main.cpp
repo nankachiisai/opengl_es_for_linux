@@ -10,6 +10,7 @@
 #include <vector>
 #include "bunny.h"
 #include "vec3.h"
+#include "mat4.h"
 
 using namespace std;
 
@@ -24,16 +25,10 @@ static int bindUniformVariable4x4(GLuint program, float *data, const char *name)
 static int loadBunny(const char *filename, bunny *b);
 static int freeBunny(bunny *b);
 static void multiply4x4(float A[16], float B[16], float AB[16]); // A * B = AB
-static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, float Matrix[16]);
-static void createLookAt(float position[3], float orientation[3], float up[3], float Matrix[16]);
+static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, mat4 &m);
+static void createLookAt(float position[3], float orientation[3], float up[3], mat4 &m);
 
 const float PI = 3.14159f;
-
-static float vertices[] = {
-	-1.0f, 0.0f, 0.0f,
-	1.0f, 0.0f, 0.0f,
-	0.0f, 1.0f, 0.0f
-};
 
 static float rotationMatrix[] = {
 	1.0f, 0.0f, 0.0f, 0.0f,
@@ -132,46 +127,52 @@ int main(int argc, char *argv[]) {
 
 static void display(void) {
 	static float degree = 0.0;
-	float rad;
-	GLfloat white[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	GLfloat transformMatrix[16];
-	GLfloat orthogonalMatrix[16];
-	GLfloat LookAtMatrix[16];
-	GLfloat tmpMatrix[16];
-	GLfloat resultMatrix[16];
 
 	// ウィンドウを白で塗りつぶす
+	GLfloat white[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	glClearBufferfv(GL_COLOR, 0, white);
 
 	// 平行投影変換行列を生成する
-	createOrthogonal(-0.5f, 0.5f, 0.5f, -0.5f, 0.0f, 10.0f, orthogonalMatrix);
+	mat4 orthogonalMatrix;
+	createOrthogonal(-0.25f, 0.25f, 0.25f, -0.25f, 0.0f, 10.0f, orthogonalMatrix);
 	
 	// 視野変換行列を生成する
 	float position[3] = {0.0f, 0.0f, 0.0f};
 	float orientation[3] = {0.0f, 0.0f, -1.0f};
 	float up[3] = {0.0f, 1.0f, 0.0f};
-	createLookAt(position, orientation, up, LookAtMatrix);
+	mat4 lookAtMatrix;
+	createLookAt(position, orientation, up, lookAtMatrix);
 
 	// 回転行列を生成する
-	rad = degree * PI / 180.0;
+	float rad = degree * PI / 180.0f;
 	rotationMatrix[0] = cosf(rad);
 	rotationMatrix[2] = sinf(rad);
 	rotationMatrix[8] = -sinf(rad);
 	rotationMatrix[10] = cosf(rad);
 
 	// 変換行列をuniform変数に関連付ける
-	multiply4x4(rotationMatrix, expantionMatrix, transformMatrix);
-	multiply4x4(LookAtMatrix, orthogonalMatrix, tmpMatrix);
-	multiply4x4(tmpMatrix, transformMatrix, resultMatrix);
-	bindUniformVariable4x4(program, resultMatrix, "transformMatrix");
+	mat4 rotationMatrix(::rotationMatrix);
+	mat4 expantionMatrix(::expantionMatrix);
+	mat4 transformMatrix, tmpMatrix, resultMatrix;
+	transformMatrix.multiply(rotationMatrix, expantionMatrix);
+	tmpMatrix.multiply(lookAtMatrix, orthogonalMatrix);
+	resultMatrix.multiply(tmpMatrix, transformMatrix);
+	bindUniformVariable4x4(program, resultMatrix.matrix, "transformMatrix");
+
+	// 変換行列の逆行列を生成する
+	mat4 invMatrix(resultMatrix);
+	invMatrix.inverse();
+
+	// 逆行列をuniform変数に関連付ける
+	bindUniformVariable4x4(program , invMatrix.matrix, "invMatrix");
 
 	// 描画
 	glDrawElements(GL_TRIANGLES, b.indexNum, GL_UNSIGNED_INT, 0);
 
 	glFlush();
 
-	if (fabs(degree - 360.0) < 0.01) {
-		degree = 0.0;
+	if (abs(degree - 360.0f) < 0.01f) {
+		degree = 0.0f;
 	}
 	else {
 		degree += 0.01f;
@@ -185,16 +186,9 @@ void idle(void) {
 }
 
 static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *compiledProgram) {
+	// とりあえず1KB確保
 	int capacity = 1024;
 	int usage = 0;
-	FILE *fp;
-	GLuint shader;
-	GLint compileStatus;
-	int returnValue;
-	GLchar Log[1024];
-	GLsizei length;
-
-	// とりあえず1KB確保
 	char *source = (char *) malloc(sizeof(char) * capacity);
 	if (source == NULL) {
 		printf("Error: malloc\n");
@@ -202,7 +196,7 @@ static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *comp
 	}
 
 	// ファイルオープン
-	fp = fopen(fileName, "r");
+	FILE *fp = fopen(fileName, "r");
 	if (fp == NULL) {
 		printf("Error: fopen\n");
 		return -1;
@@ -240,7 +234,7 @@ static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *comp
 	}
 
 	// ファイルをクローズ
-	returnValue = fclose(fp);
+	int returnValue = fclose(fp);
 	if (returnValue == EOF) {
 		printf("Error: fclose\n");
 		return -1;
@@ -248,7 +242,7 @@ static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *comp
 	fp = NULL;
 
 	// シェーダオブジェクトを作成する
-	shader = glCreateShader(shaderType);
+	GLuint shader = glCreateShader(shaderType);
 
 	// コンパイル
 	const char* src = source;
@@ -256,6 +250,9 @@ static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *comp
 	glCompileShader(shader);
 
 	// コンパイルステータスをgetする
+	GLint compileStatus;
+	GLchar Log[1024];
+	GLsizei length;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
 	if (compileStatus == GL_FALSE) {
 		glGetShaderInfoLog(shader, 1024 * sizeof(GLchar), &length, Log);
@@ -274,13 +271,8 @@ static int getShaderSource(const char *fileName, GLenum shaderType, GLuint *comp
 }
 
 static int useShaders(GLuint VertShader, GLuint FragShader, GLuint *program) {
-	GLuint shaderp;
-	GLint linkStatus;
-	GLchar Log[1024];
-	GLsizei length;
-
 	// シェーダプログラムを作成
-	shaderp = glCreateProgram();
+	GLuint shaderp = glCreateProgram();
 
 	// バーテックスシェーダとフラグメントシェーダをアタッチする
 	glAttachShader(shaderp, VertShader);
@@ -290,6 +282,9 @@ static int useShaders(GLuint VertShader, GLuint FragShader, GLuint *program) {
 	glLinkProgram(shaderp);
 
 	// リンクステータスをgetする
+	GLint linkStatus;
+	GLchar Log[1024];
+	GLsizei length;
 	glGetProgramiv(shaderp, GL_LINK_STATUS, &linkStatus);
 	if (linkStatus == GL_FALSE) {
 		glGetProgramInfoLog(shaderp, 1024 * sizeof(GLchar), &length, Log);
@@ -329,13 +324,11 @@ static int transferData(void *data, int num, GLenum bufferType, GLuint *buffer) 
 }
 
 static int bindAttributeVariable(GLuint program, GLuint VBO, const char *name) {
-	GLint attr;
-
 	// VBOをバインドする
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
 	// VBOとin変数を関連付ける
-	attr = glGetAttribLocation(program, name);
+	GLint attr = glGetAttribLocation(program, name);
 	glEnableVertexAttribArray(attr);
 	glVertexAttribPointer(attr, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
@@ -343,10 +336,8 @@ static int bindAttributeVariable(GLuint program, GLuint VBO, const char *name) {
 }
 
 static int bindUniformVariable4x4(GLuint program, float *data, const char *name) {
-	GLint uniform;
-
 	// uniform変数の場所をgetする
-	uniform = glGetUniformLocation(program, name);
+	GLint uniform = glGetUniformLocation(program, name);
 
 	// 4x4の行列をuniform変数に関連付ける
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, data);
@@ -355,27 +346,15 @@ static int bindUniformVariable4x4(GLuint program, float *data, const char *name)
 }
 
 static int loadBunny(const char *filename, bunny *b) {
-	FILE *fp;
-	char *fgetsReturn;
-	int fcloseReturn;
-	char *buf;
-	int strLength;
-	int cmpResult;
-	float x, y, z, confidence, intensity;
-	int tmp, ix, iy, iz;
-	float *vertices;
-	unsigned int *indices;
-	float *vertNormals;
-
 	//ファイルオープン
-	fp = fopen(filename, "r");
+	FILE *fp = fopen(filename, "r");
 	if (fp == NULL) {
 		printf("Error: fopen\n");
 		return -1;
 	}
 
 	// 読み取り用バッファを1KB確保
-	buf = new char[1024];
+	char *buf = new char[1024];
 	if (buf == NULL) {
 		printf("Error: malloc");
 		return -1;
@@ -384,15 +363,15 @@ static int loadBunny(const char *filename, bunny *b) {
 	// end_headerまで読み飛ばす
 	while (1) {
 		// 行を読み込む
-		fgetsReturn = fgets(buf, sizeof(char) * 1024, fp);
+		char *fgetsReturn = fgets(buf, sizeof(char) * 1024, fp);
 		if (fgetsReturn == NULL) {
 			printf("Error: fgets");
 			return -1;
 		}
 
 		// 文字列比較
-		strLength = strlen(buf);
-		cmpResult = strncmp(buf, "end_header\n", strLength);
+		int strLength = strlen(buf);
+		int cmpResult = strncmp(buf, "end_header\n", strLength);
 		if (cmpResult == 0) {
 			// ヘッダを読み終えた
 			break;
@@ -406,13 +385,14 @@ static int loadBunny(const char *filename, bunny *b) {
 	// 頂点配列を確保する。35947 * 3 * 4 = 431,364バイト必要。
 	// 使用後、freeすること。
 	const int vertNum = 35947 * 3; // 要素数
-	vertices = new float[vertNum];
+	float *vertices = new float[vertNum];
 	if (vertices == NULL) {
 		return -1;
 	}
 
 	// ひたすら読み込んでいく
-	for (int i = 0; i < 35947; i++) {
+	float x, y, z, confidence, intensity;
+	for (int i = 0; i < vertNum / 3; i++) {
 		fscanf(fp, "%f %f %f %f %f", &x, &y, &z, &confidence, &intensity);
 		vertices[3 * i + 0] = x;
 		vertices[3 * i + 1] = y;
@@ -422,13 +402,14 @@ static int loadBunny(const char *filename, bunny *b) {
 	// 頂点インデックス配列を確保する。69451 * 3 * 4 = 833,412バイト必要。
 	// 使用後、freeすること。
 	const int idxNum = 69451 * 3;	// 要素数
-	indices = new unsigned int[idxNum];
+	unsigned int *indices = new unsigned int[idxNum];
 	if (indices == NULL) {
 		return -1;
 	}
 
 	// ひたすら読み込む
-	for (int i = 0; i < 69451; i++) {
+	int tmp, ix, iy, iz;
+	for (int i = 0; i < idxNum / 3; i++) {
 		fscanf(fp, "%d %d %d %d", &tmp, &ix, &iy, &iz);
 		indices[3 * i + 0] = ix;
 		indices[3 * i + 1] = iy;
@@ -436,7 +417,7 @@ static int loadBunny(const char *filename, bunny *b) {
 	}
 
 	// ファイルクローズ
-	fcloseReturn = fclose(fp);
+	int fcloseReturn = fclose(fp);
 	if (fcloseReturn == EOF) {
 		return -1;
 	}
@@ -475,7 +456,7 @@ static int loadBunny(const char *filename, bunny *b) {
 	// 頂点法線ベクトル配列を確保する。431,364バイト必要。
 	// 使用後、freeすること。
 	const int normNum = vertNum;
-	vertNormals = new float[vertNum];
+	float *vertNormals = new float[vertNum];
 
 	// 頂点法線ベクトルを求める
 	vector<vector<unsigned int>> point(vertNum, vector<unsigned int>(10, 0));
@@ -542,49 +523,28 @@ static int freeBunny(bunny *b) {
 	return 0;
 }
 
-static void multiply4x4(float A[16], float B[16], float AB[16]) {
-	float tmp;
-
-	// ゼロクリア
-	memset(AB, 0, sizeof(float) * 16);
-
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			tmp = 0.0f;
-
-			for (int k = 0; k < 4; k++) {
-				tmp += A[4 * i + k] * B[4 * k + j];
-			}
-
-			AB[4 * i + j] = tmp;
-		}
-	}
-
-	return;
-}
-
-static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, float Matrix[16]) {
-	Matrix[0] = 2.0f / (Right - Left);
-	Matrix[1] = 0.0f;
-	Matrix[2] = 0.0f;
-	Matrix[3] = -(Right + Left) / (Right - Left);
-	Matrix[4] = 0.0f;
-	Matrix[5] = 2.0f / (Top - Bottom);
-	Matrix[6] = 0.0f;
-	Matrix[7] = -(Top + Bottom) / (Top - Bottom);
-	Matrix[8] = 0.0f;
-	Matrix[9] = 0.0f;
-	Matrix[10] = -2.0f / (Far - Near);
-	Matrix[11] = -(Far + Near) / (Far - Near);
-	Matrix[12] = 0.0f;
-	Matrix[13] = 0.0f;
-	Matrix[14] = 0.0f;
-	Matrix[15] = 1.0f;
+static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, mat4 &m) {
+	m.matrix[0] = 2.0f / (Right - Left);
+	m.matrix[1] = 0.0f;
+	m.matrix[2] = 0.0f;
+	m.matrix[3] = -(Right + Left) / (Right - Left);
+	m.matrix[4] = 0.0f;
+	m.matrix[5] = 2.0f / (Top - Bottom);
+	m.matrix[6] = 0.0f;
+	m.matrix[7] = -(Top + Bottom) / (Top - Bottom);
+	m.matrix[8] = 0.0f;
+	m.matrix[9] = 0.0f;
+	m.matrix[10] = -2.0f / (Far - Near);
+	m.matrix[11] = -(Far + Near) / (Far - Near);
+	m.matrix[12] = 0.0f;
+	m.matrix[13] = 0.0f;
+	m.matrix[14] = 0.0f;
+	m.matrix[15] = 1.0f;
 
 	return;
 }
 
-static void createLookAt(float position[3], float orientation[3], float up[3], float Matrix[16]) {
+static void createLookAt(float position[3], float orientation[3], float up[3], mat4 &m) {
 	float v[3];
 
 	// orientation × up
@@ -592,22 +552,22 @@ static void createLookAt(float position[3], float orientation[3], float up[3], f
 	v[1] = orientation[2] * up[0] - orientation[0] * up[2];
 	v[2] = orientation[0] * up[1] - orientation[1] * up[0];
 
-	Matrix[0] = orientation[0];
-	Matrix[1] = orientation[1];
-	Matrix[2] = orientation[2];
-	Matrix[3] = -position[0] * orientation[0] - position[1] * orientation[1] - position[2] * orientation[2];
-	Matrix[4] = up[0];
-	Matrix[5] = up[1];
-	Matrix[6] = up[2];
-	Matrix[7] = -position[0] * up[0] - position[1] * up[1] - position[2] * up[2];
-	Matrix[8] = v[0];
-	Matrix[9] = v[1];
-	Matrix[10] = v[2];
-	Matrix[11] = -position[0] * v[0] - position[1] * v[1] - position[2] * v[2];
-	Matrix[12] = 0.0f;
-	Matrix[13] = 0.0f;
-	Matrix[14] = 0.0f;
-	Matrix[15] = 1.0f;
+	m.matrix[0] = orientation[0];
+	m.matrix[1] = orientation[1];
+	m.matrix[2] = orientation[2];
+	m.matrix[3] = -position[0] * orientation[0] - position[1] * orientation[1] - position[2] * orientation[2];
+	m.matrix[4] = up[0];
+	m.matrix[5] = up[1];
+	m.matrix[6] = up[2];
+	m.matrix[7] = -position[0] * up[0] - position[1] * up[1] - position[2] * up[2];
+	m.matrix[8] = v[0];
+	m.matrix[9] = v[1];
+	m.matrix[10] = v[2];
+	m.matrix[11] = -position[0] * v[0] - position[1] * v[1] - position[2] * v[2];
+	m.matrix[12] = 0.0f;
+	m.matrix[13] = 0.0f;
+	m.matrix[14] = 0.0f;
+	m.matrix[15] = 1.0f;
 
 	return;
 }

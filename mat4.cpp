@@ -2,11 +2,14 @@
 #include <string.h>
 
 mat4::mat4() {
-	memset(this->matrix, 0, sizeof(float) * 16);
 }
 
 mat4::mat4(float m[16]) {
 	memcpy(this->matrix, m, sizeof(float) * 16);
+}
+
+mat4::mat4(mat4 &m) {
+	memcpy(this->matrix, m.matrix, sizeof(float) * 16);
 }
 
 void mat4::add(mat4 &a, mat4 &b) {
@@ -80,8 +83,54 @@ void mat4::multiply(float a) {
 	this->matrix[15] *= a;
 }
 
-void mat4::inverse() {
+void mat4::identity() {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			if (i == j) {
+				this->matrix[4 * i + j] = 1.0f;
+			}
+			else {
+				this->matrix[4 * i + j] = 0.0f;
+			}
+		}
+	}
+}
 
+void mat4::inverse() {
+	mat4 invMatrix;
+
+	// http://www.slis.tsukuba.ac.jp/~fujisawa.makoto.fu/cgi-bin/wiki/index.php?%A5%AC%A5%A6%A5%B9%8E%A5%A5%B8%A5%E7%A5%EB%A5%C0%A5%F3%CB%A1 を参考にした。
+
+	// 単位行列を生成
+	invMatrix.identity();
+
+	// ガウス・ジョルダン法で逆行列計算
+	for (int k = 0; k < 4; k++) {
+		double kk = this->matrix[4 * k + k];
+
+		// 対角要素を1にするために、k行目のすべての要素をkkで割る
+		for (int j = 0; j < 4; j++) {
+			this->matrix[4 * k + j] /= kk;
+			invMatrix.matrix[4 * k + j] /= kk;
+		}
+
+		// k列目の非対角要素を0にする
+		for (int i = 0; i < 4; i++) {
+			if (i == k) {
+				continue;
+			}
+
+			double ik = this->matrix[4 * i + k];
+			for (int j = 0; j < 4; j++) {
+				this->matrix[4 * i + j] -= this->matrix[4 * k + j] * ik;
+				invMatrix.matrix[4 * i + j] -= invMatrix.matrix[4 * k + j] * ik;
+			}
+		}
+	}
+
+	// 結果をコピー
+	memcpy(this->matrix, invMatrix.matrix, sizeof(float) * 16);
+	
 }
 
 void mat4::transpose() {
