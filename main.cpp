@@ -24,9 +24,8 @@ static int bindAttributeVariable(GLuint program, GLuint VBO, const char *name);
 static int bindUniformVariable4x4(GLuint program, float *data, const char *name);
 static int loadBunny(const char *filename, bunny *b);
 static int freeBunny(bunny *b);
-static void multiply4x4(float A[16], float B[16], float AB[16]); // A * B = AB
 static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, mat4 &m);
-static void createLookAt(float position[3], float orientation[3], float up[3], mat4 &m);
+static void createLookAt(vec3 &position, vec3 &orientation, vec3 &up, mat4 &m);
 
 const float PI = 3.14159f;
 
@@ -137,9 +136,9 @@ static void display(void) {
 	createOrthogonal(-0.25f, 0.25f, 0.25f, -0.25f, 0.0f, 10.0f, orthogonalMatrix);
 	
 	// 視野変換行列を生成する
-	float position[3] = {0.0f, 0.0f, 0.0f};
-	float orientation[3] = {0.0f, 0.0f, -1.0f};
-	float up[3] = {0.0f, 1.0f, 0.0f};
+	vec3 position(0.0f, 0.0f, 0.0f);
+	vec3 orientation(0.0f, 0.0f, -1.0f);
+	vec3 up(0.0f, 1.0f, 0.0f);
 	mat4 lookAtMatrix;
 	createLookAt(position, orientation, up, lookAtMatrix);
 
@@ -544,26 +543,27 @@ static void createOrthogonal(float Left, float Right, float Top, float Bottom, f
 	return;
 }
 
-static void createLookAt(float position[3], float orientation[3], float up[3], mat4 &m) {
-	float v[3];
+static void createLookAt(vec3 &position, vec3 &orientation, vec3 &up, mat4 &m) {
+	vec3 v;
 
-	// orientation × up
-	v[0] = orientation[1] * up[2] - orientation[2] * up[1];
-	v[1] = orientation[2] * up[0] - orientation[0] * up[2];
-	v[2] = orientation[0] * up[1] - orientation[1] * up[0];
+	v.cross(orientation, up);
 
-	m.matrix[0] = orientation[0];
-	m.matrix[1] = orientation[1];
-	m.matrix[2] = orientation[2];
-	m.matrix[3] = -position[0] * orientation[0] - position[1] * orientation[1] - position[2] * orientation[2];
-	m.matrix[4] = up[0];
-	m.matrix[5] = up[1];
-	m.matrix[6] = up[2];
-	m.matrix[7] = -position[0] * up[0] - position[1] * up[1] - position[2] * up[2];
-	m.matrix[8] = v[0];
-	m.matrix[9] = v[1];
-	m.matrix[10] = v[2];
-	m.matrix[11] = -position[0] * v[0] - position[1] * v[1] - position[2] * v[2];
+	float m3 = -vec3::dot(position, orientation);
+	float m7 = -vec3::dot(position, up);
+	float m11 = -vec3::dot(position, v);
+
+	m.matrix[0] = orientation.x;
+	m.matrix[1] = orientation.y;
+	m.matrix[2] = orientation.z;
+	m.matrix[3] = m3;
+	m.matrix[4] = up.x;
+	m.matrix[5] = up.y;
+	m.matrix[6] = up.z;
+	m.matrix[7] = m7;
+	m.matrix[8] = v.x;
+	m.matrix[9] = v.y;
+	m.matrix[10] = v.z;
+	m.matrix[11] = m11;
 	m.matrix[12] = 0.0f;
 	m.matrix[13] = 0.0f;
 	m.matrix[14] = 0.0f;
