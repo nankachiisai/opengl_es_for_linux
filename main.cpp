@@ -8,6 +8,9 @@
 #include <math.h>
 #include <string.h>
 #include <vector>
+#include <string>
+#include <fstream>
+#include <iostream>
 #include "bunny.h"
 #include "vec3.h"
 #include "mat4.h"
@@ -26,6 +29,7 @@ static int loadBunny(const char *filename, bunny *b);
 static int freeBunny(bunny *b);
 static void createOrthogonal(float Left, float Right, float Top, float Bottom, float Near, float Far, mat4 &m);
 static void createLookAt(vec3 &position, vec3 &orientation, vec3 &up, mat4 &m);
+static int split(string str, const char splitChar, vector<string> **splitedStr);
 
 const float PI = 3.14159f;
 
@@ -345,87 +349,87 @@ static int bindUniformVariable4x4(GLuint program, float *data, const char *name)
 }
 
 static int loadBunny(const char *filename, bunny *b) {
+	int vertNum = 0;
+	int idxNum = 0;
+
 	//ファイルオープン
-	FILE *fp = fopen(filename, "r");
-	if (fp == NULL) {
-		printf("Error: fopen\n");
+	ifstream file(filename);
+	if (file.fail()) {
+		printf("error: ifstream constructor\n");
 		return -1;
 	}
 
-	// 読み取り用バッファを1KB確保
-	char *buf = new char[1024];
-	if (buf == NULL) {
-		printf("Error: malloc");
-		return -1;
-	}
-
-	// end_headerまで読み飛ばす
+	// ヘッダ部
 	while (1) {
+		// stringクラスを使う
+		string str;
+
 		// 行を読み込む
-		char *fgetsReturn = fgets(buf, sizeof(char) * 1024, fp);
-		if (fgetsReturn == NULL) {
-			printf("Error: fgets");
-			return -1;
+		getline(file, str);
+
+		// 読み込んだ文字列をspiltする
+		vector<string> *v = NULL;
+		split(str, ' ', &v);
+
+		// elementセクションを読む
+		if ((*v)[0] == "element") {
+			if ((*v)[1] == "vertex") {
+				sscanf(&((*v)[2])[0], "%d", &vertNum);
+			}
+			if ((*v)[1] == "face") {
+				sscanf(&((*v)[2])[0], "%d", &idxNum);
+			}
 		}
 
-		// 文字列比較
-		int strLength = strlen(buf);
-		int cmpResult = strncmp(buf, "end_header\n", strLength);
-		if (cmpResult == 0) {
-			// ヘッダを読み終えた
+		// end_headerだったら、ループを抜ける
+		if (str == "end_header") {
 			break;
 		}
-		
+
+		// vectorをdeleteする
+		delete v;
 	}
 
-	// 読み取り用バッファをfreeする
-	delete[] buf;
-
 	// 頂点配列を確保する。35947 * 3 * 4 = 431,364バイト必要。
-	// 使用後、freeすること。
-	const int vertNum = 35947 * 3; // 要素数
-	float *vertices = new float[vertNum];
+	// 使用後、delete[]すること。
+	float *vertices = new float[vertNum * 3];
 	if (vertices == NULL) {
 		return -1;
 	}
 
 	// ひたすら読み込んでいく
 	float x, y, z, confidence, intensity;
-	for (int i = 0; i < vertNum / 3; i++) {
-		fscanf(fp, "%f %f %f %f %f", &x, &y, &z, &confidence, &intensity);
+	for (int i = 0; i < vertNum; i++) {
+		string str;
+		getline(file, str);
+		sscanf(&str[0], "%f %f %f %f %f", &x, &y, &z, &confidence, &intensity);
 		vertices[3 * i + 0] = x;
 		vertices[3 * i + 1] = y;
 		vertices[3 * i + 2] = z;
 	}
 
 	// 頂点インデックス配列を確保する。69451 * 3 * 4 = 833,412バイト必要。
-	// 使用後、freeすること。
-	const int idxNum = 69451 * 3;	// 要素数
-	unsigned int *indices = new unsigned int[idxNum];
+	// 使用後、delete[]すること。
+	unsigned int *indices = new unsigned int[idxNum * 3];
 	if (indices == NULL) {
 		return -1;
 	}
 
 	// ひたすら読み込む
 	int tmp, ix, iy, iz;
-	for (int i = 0; i < idxNum / 3; i++) {
-		fscanf(fp, "%d %d %d %d", &tmp, &ix, &iy, &iz);
+	for (int i = 0; i < idxNum; i++) {
+		string str;
+		getline(file, str);
+		sscanf(&str[0], "%d %d %d %d", &tmp, &ix, &iy, &iz);
 		indices[3 * i + 0] = ix;
 		indices[3 * i + 1] = iy;
 		indices[3 * i + 2] = iz;
 	}
 
-	// ファイルクローズ
-	int fcloseReturn = fclose(fp);
-	if (fcloseReturn == EOF) {
-		return -1;
-	}
-	fp = NULL;
-
 	// 面法線ベクトルを三角形から計算する
-	vec3 *surfNormals = new vec3[idxNum / 3];
+	vec3 *surfNormals = new vec3[idxNum];
 
-	for (int i = 0; i < idxNum / 3; i++) {
+	for (int i = 0; i < idxNum; i++) {
 		vec3 point1, point2, point3;
 		point1.x = vertices[indices[3 * i + 0] + 0];
 		point1.y = vertices[indices[3 * i + 0] + 1];
@@ -453,14 +457,14 @@ static int loadBunny(const char *filename, bunny *b) {
 	}
 
 	// 頂点法線ベクトル配列を確保する。431,364バイト必要。
-	// 使用後、freeすること。
+	// 使用後、delete[]すること。
 	const int normNum = vertNum;
-	float *vertNormals = new float[vertNum];
+	float *vertNormals = new float[vertNum * 3];
 
 	// 頂点法線ベクトルを求める
 	vector<vector<unsigned int>> point(vertNum, vector<unsigned int>(10, 0));
 
-	for (int i = 0; i < idxNum / 3; i++) {
+	for (int i = 0; i < idxNum; i++) {
 		unsigned int p1 = indices[3 * i + 0];
 		unsigned int p2 = indices[3 * i + 1];
 		unsigned int p3 = indices[3 * i + 2];
@@ -470,7 +474,7 @@ static int loadBunny(const char *filename, bunny *b) {
 		point[p3].push_back(i);
 	}
 
-	for (int i = 0; i < normNum / 3; i++) {
+	for (int i = 0; i < normNum; i++) {
 		vec3 vertNormal(0.0f, 0.0f, 0.0f);
 
 		for (unsigned int j = 0; j < point[i].size(); j++) {
@@ -487,7 +491,7 @@ static int loadBunny(const char *filename, bunny *b) {
 		vertNormals[3 * i + 2] = vertNormal.z;
 	}
 
-	// 面法線ベクトル配列をfreeする
+	// 面法線ベクトル配列をdelete[]する
 	delete[] surfNormals;
 	surfNormals = NULL;
 
@@ -570,4 +574,22 @@ static void createLookAt(vec3 &position, vec3 &orientation, vec3 &up, mat4 &m) {
 	m.matrix[15] = 1.0f;
 
 	return;
+}
+
+static int split(string str, const char splitChar, vector<string> **splitedStr) {
+	vector<string> *result = new vector<string>;
+	int p = 0;
+
+	for (int i = 0; i < str.length(); i++) {
+		if (str[i] == splitChar) {
+			result->push_back(str.substr(p, i - p));
+			p = i + 1;
+		}
+	}
+
+	result->push_back(str.substr(p, str.length() - p));
+
+	*splitedStr = result;
+
+	return 0;
 }
