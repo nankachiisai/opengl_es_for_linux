@@ -10,7 +10,6 @@
 #include <vector>
 #include <string>
 #include <fstream>
-#include <iostream>
 #include "bunny.h"
 #include "vec3.h"
 #include "mat4.h"
@@ -50,9 +49,9 @@ static float expantionMatrix[] = {
 static bunny b;
 
 static GLuint program;
-GLuint VBO; // Vertex Buffer Object
-GLuint IBO; // Index Buffer Object
-GLuint normalVector;
+static GLuint VBO; // Vertex Buffer Object
+static GLuint IBO; // Index Buffer Object
+static GLuint normalVector;
 
 int main(int argc, char *argv[]) {
 	GLenum err;
@@ -90,13 +89,13 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	getShaderSource("main.frag", GL_FRAGMENT_SHADER, &fShader);
+	returnValue = getShaderSource("main.frag", GL_FRAGMENT_SHADER, &fShader);
 	if (returnValue == -1) {
 		printf("Error: getShaderSource\n");
 		return -1;
 	}
 
-	useShaders(vShader, fShader, &program);
+	returnValue = useShaders(vShader, fShader, &program);
 	if (returnValue == -1) {
 		printf("Error: useShaders");
 		return -1;
@@ -497,15 +496,15 @@ static int loadBunny(const char *filename, bunny *b) {
 
 	// 頂点配列を返す
 	b->vertices = vertices;
-	b->vertexNum = vertNum;
+	b->vertexNum = vertNum * 3;
 
 	// 頂点インデックス配列を返す
 	b->vertexIndices = indices;
-	b->indexNum = idxNum;
+	b->indexNum = idxNum * 3;
 
 	// 法線ベクトル配列を返す
 	b->normalVectors = vertNormals;
-	b->vectorNum = normNum;
+	b->vectorNum = normNum * 3;
 
 	return 0;
 }
