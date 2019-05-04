@@ -40,9 +40,9 @@ static float rotationMatrix[] = {
 };
 
 static float expantionMatrix[] = {
-	1.0f, 0.0f, 0.0f, 0.0f,
-	0.0f, 1.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 1.0f, 0.0f,
+	5.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 5.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 5.0f, 0.0f,
 	0.0f, 0.0f, 0.0f, 1.0f
 };
 
@@ -51,6 +51,7 @@ static bunny b;
 static GLuint program;
 static GLuint VBO; // Vertex Buffer Object
 static GLuint IBO; // Index Buffer Object
+static GLuint v_color;
 static GLuint normalVector;
 
 int main(int argc, char *argv[]) {
@@ -59,7 +60,8 @@ int main(int argc, char *argv[]) {
 	int returnValue;
 
 	// スタンフォードバニーの読み込み
-	returnValue = loadBunny("bun_zipper.ply", &b);
+//	returnValue = loadBunny("bun_zipper.ply", &b);
+	returnValue = loadBunny("test.ply", &b);
 	if (returnValue == -1) {
 		return -1;
 	}
@@ -103,11 +105,13 @@ int main(int argc, char *argv[]) {
 
 	// データをGPUに転送する
 	transferData(b.vertices, b.vertexNum, GL_ARRAY_BUFFER, &VBO);
+	transferData(b.color, b.colorNum, GL_ARRAY_BUFFER, &v_color);
 	transferData(b.normalVectors, b.vectorNum, GL_ARRAY_BUFFER, &normalVector);
 	transferData(b.vertexIndices, b.indexNum, GL_ELEMENT_ARRAY_BUFFER, &IBO);
 
 	// VBOとバーテックスシェーダのin変数とを関連付ける
 	bindAttributeVariable(program, VBO, "position");
+	bindAttributeVariable(program, v_color, "v_color");
 	bindAttributeVariable(program, normalVector, "normal");
 
 	// メインループ
@@ -128,7 +132,7 @@ int main(int argc, char *argv[]) {
 }
 
 static void display(void) {
-	static float degree = 0.0;
+	static float degree = 0.0f;
 
 	// ウィンドウを白で塗りつぶす
 	GLfloat white[] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -136,7 +140,7 @@ static void display(void) {
 
 	// 平行投影変換行列を生成する
 	mat4 orthogonalMatrix;
-	createOrthogonal(-0.25f, 0.25f, 0.25f, -0.25f, 0.0f, 10.0f, orthogonalMatrix);
+	createOrthogonal(-5.0f, 5.0f, 5.0f, -5.0f, 0.0f, 10.0f, orthogonalMatrix);
 	
 	// 視野変換行列を生成する
 	vec3 position(0.0f, 0.0f, 0.0f);
@@ -157,12 +161,12 @@ static void display(void) {
 	mat4 expantionMatrix(::expantionMatrix);
 	mat4 transformMatrix, tmpMatrix, resultMatrix;
 	transformMatrix.multiply(rotationMatrix, expantionMatrix);
-	tmpMatrix.multiply(lookAtMatrix, orthogonalMatrix);
-	resultMatrix.multiply(tmpMatrix, transformMatrix);
-	bindUniformVariable4x4(program, resultMatrix.matrix, "transformMatrix");
+	// tmpMatrix.multiply(lookAtMatrix, orthogonalMatrix);
+	// resultMatrix.multiply(tmpMatrix, transformMatrix);
+	bindUniformVariable4x4(program, transformMatrix.matrix, "transformMatrix");
 
 	// 変換行列の逆行列を生成する
-	mat4 invMatrix(resultMatrix);
+	mat4 invMatrix(transformMatrix);
 	invMatrix.inverse();
 
 	// 逆行列をuniform変数に関連付ける
@@ -170,6 +174,8 @@ static void display(void) {
 
 	// 描画
 	glDrawElements(GL_TRIANGLES, b.indexNum, GL_UNSIGNED_INT, 0);
+	// glPointSize(10.0f);
+	// glDrawArrays(GL_POINTS, 0, b.vertexNum);
 
 	glFlush();
 
@@ -425,22 +431,36 @@ static int loadBunny(const char *filename, bunny *b) {
 		indices[3 * i + 2] = iz;
 	}
 
+	// カラー配列を作成する
+	// とりあえず全身白にしておく
+	float *colors = new float[vertNum * 4];
+	if (colors == NULL) {
+		return -1;
+	}
+
+	for (int i = 0; i < vertNum; i++) {
+		colors[4 * i + 0] = 1.0f; // R
+		colors[4 * i + 1] = 1.0f; // G
+		colors[4 * i + 2] = 1.0f; // B
+		colors[4 * i + 3] = 1.0f; // A
+	}
+
 	// 面法線ベクトルを三角形から計算する
 	vec3 *surfNormals = new vec3[idxNum];
 
 	for (int i = 0; i < idxNum; i++) {
 		vec3 point1, point2, point3;
-		point1.x = vertices[indices[3 * i + 0] + 0];
-		point1.y = vertices[indices[3 * i + 0] + 1];
-		point1.z = vertices[indices[3 * i + 0] + 2];
+		point1.x = vertices[3 * indices[3 * i + 0] + 0];
+		point1.y = vertices[3 * indices[3 * i + 0] + 1];
+		point1.z = vertices[3 * indices[3 * i + 0] + 2];
 
-		point2.x = vertices[indices[3 * i + 1] + 0];
-		point2.y = vertices[indices[3 * i + 1] + 1];
-		point2.z = vertices[indices[3 * i + 1] + 2];
+		point2.x = vertices[3 * indices[3 * i + 1] + 0];
+		point2.y = vertices[3 * indices[3 * i + 1] + 1];
+		point2.z = vertices[3 * indices[3 * i + 1] + 2];
 
-		point3.x = vertices[indices[3 * i + 2] + 0];
-		point3.y = vertices[indices[3 * i + 2] + 1];
-		point3.z = vertices[indices[3 * i + 2] + 2];
+		point3.x = vertices[3 * indices[3 * i + 2] + 0];
+		point3.y = vertices[3 * indices[3 * i + 2] + 1];
+		point3.z = vertices[3 * indices[3 * i + 2] + 2];
 
 		vec3 vec1, vec2;
 		vec1.subtract(point2, point1);
@@ -458,10 +478,10 @@ static int loadBunny(const char *filename, bunny *b) {
 	// 頂点法線ベクトル配列を確保する。431,364バイト必要。
 	// 使用後、delete[]すること。
 	const int normNum = vertNum;
-	float *vertNormals = new float[vertNum * 3];
+	float *vertNormals = new float[normNum * 3];
 
 	// 頂点法線ベクトルを求める
-	vector<vector<unsigned int>> point(vertNum, vector<unsigned int>(10, 0));
+	vector<vector<unsigned int>> point(vertNum, vector<unsigned int>(0, 0));
 
 	for (int i = 0; i < idxNum; i++) {
 		unsigned int p1 = indices[3 * i + 0];
@@ -498,6 +518,10 @@ static int loadBunny(const char *filename, bunny *b) {
 	b->vertices = vertices;
 	b->vertexNum = vertNum * 3;
 
+	// カラー配列を返す
+	b->color = colors;
+	b->colorNum = vertNum * 4;
+
 	// 頂点インデックス配列を返す
 	b->vertexIndices = indices;
 	b->indexNum = idxNum * 3;
@@ -517,6 +541,10 @@ static int freeBunny(bunny *b) {
 	delete[] b->vertexIndices;
 	b->vertexIndices = NULL;
 	b->indexNum = 0;
+
+	delete[] b->color;
+	b->color = NULL;
+	b->colorNum = 0;
 
 	delete[] b->normalVectors;
 	b->normalVectors = NULL;
