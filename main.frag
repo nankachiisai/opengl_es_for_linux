@@ -11,8 +11,7 @@ void main(void) {
 	vec4 light_color = vec4(1.0, 1.0, 1.0, 1.0);
 	vec3 light_direction = vec3(0.0, 0.0, 1.0);
 
-	vec4 light_vec = normalize(invMatrix * vec4(light_direction, 1.0));
-	vec3 light_v = light_vec.xyz;
-	float diffuse = clamp(dot(light_v, fg_normal), 0.0, 1.0);
-	color = diffuse * light_color * fg_color;
+	vec3 light_vec = normalize(invMatrix * vec4(light_direction, 0.0)).xyz;
+	float diffuse = clamp(dot(light_vec, fg_normal), 0.0, 1.0);
+	color = vec4(vec3(diffuse), 1.0) * light_color * fg_color;
 }
