@@ -1,7 +1,18 @@
 #ifndef _VEC3_H_
 #define _VEC3_H_
 
+#include <string>
+#include <vector>
+#include <iostream>
 #include <math.h>
+#include "Exception.h"
+
+class ZeroDivideException : public Exception {
+public:
+	ZeroDivideException(std::string errorMessage) {
+		setErrorMessage(errorMessage);
+	}
+};
 
 class vec3 {
 public:
@@ -54,25 +65,31 @@ public:
 		this->z = a.x * b.y - a.y * b.x;
 	}
 
-	error normalize() {
+	void normalize() {
 		float norm = sqrtf(this->x * this->x + this->y * this->y + this->z * this->z);
 		if (norm < err) {
-			return ZERO_DIVIDE;
+			throw ZeroDivideException("error: Zero Divide\n");
+			return;
 		}
 
 		this->x /= norm;
 		this->y /= norm;
 		this->z /= norm;
 
-		return SUCCESS;
+		return;
 	}
 
 	static float dot(const vec3 &a, const vec3 &b) {
-		return a.x * b.x + a.y * b.y + a.z + b.z;
+		return a.x * b.x + a.y * b.y + a.z * b.z;
+	}
+
+	void print() {
+		std::cout << this->x << " " << this->y << " " << this->z << std::endl;
+		std::cout << std::endl;
 	}
 
 private:
-	float err = 1.0e-6f;
+	float err = 0.0f;
 };
 
 #endif

@@ -17,6 +17,7 @@ Bunny::Bunny(const char *filename) {
 	ifstream file(filename);
 	if (file.fail()) {
 		throw BunnyException("error: ifstream constructor\n");
+		return;
 	}
 
 	// ヘッダ部
@@ -38,12 +39,14 @@ Bunny::Bunny(const char *filename) {
 				returnValue = sscanf(&((*v)[2])[0], "%d", &vertNum);
 				if (returnValue == EOF) {
 					throw BunnyException("error: sscanf\n");
+					return;
 				}
 			}
 			if ((*v)[1] == "face") {
 				returnValue = sscanf(&((*v)[2])[0], "%d", &idxNum);
 				if (returnValue == EOF) {
 					throw BunnyException("error: sscanf\n");
+					return;
 				}
 			}
 		}
@@ -62,6 +65,7 @@ Bunny::Bunny(const char *filename) {
 	float *vertices = new float[vertNum * 3];
 	if (vertices == NULL) {
 		throw BunnyException("error: new[]");
+		return;
 	}
 
 	// ひたすら読み込んでいく
@@ -72,6 +76,7 @@ Bunny::Bunny(const char *filename) {
 		int returnValue = sscanf(&str[0], "%f %f %f %f %f", &x, &y, &z, &confidence, &intensity);
 		if (returnValue == EOF) {
 			throw BunnyException("error: sscanf\n");
+			return;
 		}
 		vertices[3 * i + 0] = x;
 		vertices[3 * i + 1] = y;
@@ -83,6 +88,7 @@ Bunny::Bunny(const char *filename) {
 	unsigned int *indices = new unsigned int[idxNum * 3];
 	if (indices == NULL) {
 		throw BunnyException("error: new[]");
+		return;
 	}
 
 	// ひたすら読み込む
@@ -93,6 +99,7 @@ Bunny::Bunny(const char *filename) {
 		int returnValue = sscanf(&str[0], "%d %d %d %d", &tmp, &ix, &iy, &iz);
 		if (returnValue == EOF) {
 			throw BunnyException("error: sscanf\n");
+			return;
 		}
 		indices[3 * i + 0] = ix;
 		indices[3 * i + 1] = iy;
@@ -104,6 +111,7 @@ Bunny::Bunny(const char *filename) {
 	float *colors = new float[vertNum * 4];
 	if (colors == NULL) {
 		throw BunnyException("error: new[]");
+		return;
 	}
 
 	for (int i = 0; i < vertNum; i++) {
@@ -117,6 +125,7 @@ Bunny::Bunny(const char *filename) {
 	vec3 *surfNormals = new vec3[idxNum];
 	if (surfNormals == NULL) {
 		throw BunnyException("error: new[]");
+		return;
 	}
 
 	for (int i = 0; i < idxNum; i++) {
@@ -139,11 +148,19 @@ Bunny::Bunny(const char *filename) {
 
 		vec3 normal;
 		normal.cross(vec1, vec2);
-		normal.normalize();
+		try {
+			normal.normalize();
+		}
+		catch (ZeroDivideException &e) {
+			printf("%s", &(e.getErrorMessage())[0]);
+			return;
+		}
 
 		surfNormals[i].x = normal.x;
 		surfNormals[i].y = normal.y;
 		surfNormals[i].z = normal.z;
+
+		// normal.print();
 	}
 
 	// 頂点法線ベクトル配列を確保する。431,364バイト必要。
@@ -174,7 +191,13 @@ Bunny::Bunny(const char *filename) {
 			vertNormal.add(vertNormal, tmp);
 		}
 
-		vertNormal.normalize();
+		try {
+			vertNormal.normalize();
+		}
+		catch (ZeroDivideException &e) {
+			printf("%s", &(e.getErrorMessage())[0]);
+			return;
+		}
 
 		vertNormals[3 * i + 0] = vertNormal.x;
 		vertNormals[3 * i + 1] = vertNormal.y;

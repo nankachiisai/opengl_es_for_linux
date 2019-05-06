@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "Exception.h"
 
 class Bunny {
 public:
@@ -60,18 +61,11 @@ private:
 	void split(std::string str, const char splitChar, std::vector<std::string> **splitedStr);
 };
 
-class BunnyException {
+class BunnyException : public Exception {
 public:
 	BunnyException(std::string errorMessage) {
-		this->errorMessage = errorMessage;
+		setErrorMessage(errorMessage);
 	}
-
-	std::string getErrorMessage() {
-		return errorMessage;
-	}
-
-private:
-	std::string errorMessage;
 };
 
 #endif

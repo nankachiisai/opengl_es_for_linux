@@ -131,6 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Bunny.h" />
+    <ClInclude Include="Exception.h" />
     <ClInclude Include="mat4.h" />
     <ClInclude Include="vec3.h" />
   </ItemGroup>
