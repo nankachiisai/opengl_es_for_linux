@@ -40,9 +40,9 @@ static float rotationMatrix[] = {
 };
 
 static float expantionMatrix[] = {
-	5.0f, 0.0f, 0.0f, 0.0f,
-	0.0f, 5.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 5.0f, 0.0f,
+	1.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 1.0f, 0.0f,
 	0.0f, 0.0f, 0.0f, 1.0f
 };
 
@@ -60,8 +60,8 @@ int main(int argc, char *argv[]) {
 	int returnValue;
 
 	// スタンフォードバニーの読み込み
-//	returnValue = loadBunny("bun_zipper.ply", &b);
-	returnValue = loadBunny("test.ply", &b);
+	returnValue = loadBunny("bun_zipper.ply", &b);
+//	returnValue = loadBunny("test.ply", &b);
 	if (returnValue == -1) {
 		return -1;
 	}
@@ -140,10 +140,10 @@ static void display(void) {
 
 	// 平行投影変換行列を生成する
 	mat4 orthogonalMatrix;
-	createOrthogonal(-5.0f, 5.0f, 5.0f, -5.0f, 0.0f, 10.0f, orthogonalMatrix);
+	createOrthogonal(-0.5f, 0.5f, 0.5f, -0.5f, 0.0f, 10.0f, orthogonalMatrix);
 	
 	// 視野変換行列を生成する
-	vec3 position(0.0f, 0.0f, 0.0f);
+	vec3 position(0.0f, 0.0f, 1.0f);
 	vec3 orientation(0.0f, 0.0f, -1.0f);
 	vec3 up(0.0f, 1.0f, 0.0f);
 	mat4 lookAtMatrix;
@@ -161,12 +161,12 @@ static void display(void) {
 	mat4 expantionMatrix(::expantionMatrix);
 	mat4 transformMatrix, tmpMatrix, resultMatrix;
 	transformMatrix.multiply(rotationMatrix, expantionMatrix);
-	// tmpMatrix.multiply(lookAtMatrix, orthogonalMatrix);
-	// resultMatrix.multiply(tmpMatrix, transformMatrix);
-	bindUniformVariable4x4(program, transformMatrix.matrix, "transformMatrix");
+	tmpMatrix.multiply(orthogonalMatrix, lookAtMatrix);
+	resultMatrix.multiply(tmpMatrix, transformMatrix);
+	bindUniformVariable4x4(program, resultMatrix.matrix, "transformMatrix");
 
 	// 変換行列の逆行列を生成する
-	mat4 invMatrix(transformMatrix);
+	mat4 invMatrix(resultMatrix);
 	invMatrix.inverse();
 
 	// 逆行列をuniform変数に関連付ける
@@ -377,12 +377,21 @@ static int loadBunny(const char *filename, bunny *b) {
 		split(str, ' ', &v);
 
 		// elementセクションを読む
+		int returnValue;
 		if ((*v)[0] == "element") {
 			if ((*v)[1] == "vertex") {
-				sscanf(&((*v)[2])[0], "%d", &vertNum);
+				returnValue = sscanf(&((*v)[2])[0], "%d", &vertNum);
+				if (returnValue == EOF) {
+					printf("error: sscanf\n");
+					return -1;
+				}
 			}
 			if ((*v)[1] == "face") {
-				sscanf(&((*v)[2])[0], "%d", &idxNum);
+				returnValue = sscanf(&((*v)[2])[0], "%d", &idxNum);
+				if (returnValue == EOF) {
+					printf("error: sscanf\n");
+					return -1;
+				}
 			}
 		}
 
@@ -407,7 +416,11 @@ static int loadBunny(const char *filename, bunny *b) {
 	for (int i = 0; i < vertNum; i++) {
 		string str;
 		getline(file, str);
-		sscanf(&str[0], "%f %f %f %f %f", &x, &y, &z, &confidence, &intensity);
+		int returnValue = sscanf(&str[0], "%f %f %f %f %f", &x, &y, &z, &confidence, &intensity);
+		if (returnValue == EOF) {
+			printf("error: sscanf\n");
+			return -1;
+		}
 		vertices[3 * i + 0] = x;
 		vertices[3 * i + 1] = y;
 		vertices[3 * i + 2] = z;
@@ -425,7 +438,11 @@ static int loadBunny(const char *filename, bunny *b) {
 	for (int i = 0; i < idxNum; i++) {
 		string str;
 		getline(file, str);
-		sscanf(&str[0], "%d %d %d %d", &tmp, &ix, &iy, &iz);
+		int returnValue = sscanf(&str[0], "%d %d %d %d", &tmp, &ix, &iy, &iz);
+		if (returnValue == EOF) {
+			printf("error: sscanf\n");
+			return -1;
+		}
 		indices[3 * i + 0] = ix;
 		indices[3 * i + 1] = iy;
 		indices[3 * i + 2] = iz;
