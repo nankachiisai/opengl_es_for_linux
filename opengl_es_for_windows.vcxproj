@@ -126,10 +126,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Bunny.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bunny.h" />
+    <ClInclude Include="Bunny.h" />
     <ClInclude Include="mat4.h" />
     <ClInclude Include="vec3.h" />
   </ItemGroup>

@@ -19,16 +19,12 @@ public:
 	}
 
 	vec3(float x, float y, float z) {
-		vec3();
-
 		this->x = x;
 		this->y = y;
 		this->z = z;
 	}
 
 	vec3(vec3 &v) {
-		vec3();
-
 		this->x = v.x;
 		this->y = v.y;
 		this->z = v.z;
