@@ -8,6 +8,9 @@ typedef struct bunny {
 	unsigned int *vertexIndices;
 	int indexNum;
 
+	float *color;
+	int colorNum;
+
 	float *normalVectors;
 	int vectorNum;
 } bunny;
