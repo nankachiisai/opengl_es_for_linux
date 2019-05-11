@@ -23,3 +23,5 @@ sudo apt install libglew-dev freeglut3-dev
 opengl_es_for_windows_slnをVS2019で開き、「▶ローカルWindowsデバッガー」をクリックするだけ。
 最初のビルドでは、必要なパッケージがないと怒られるが、挫けずにもう一度押す。
 そうすると、ビルドから実行までできる。
+
+add arai
