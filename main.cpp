@@ -82,13 +82,18 @@ int main(int argc, char *argv[]) {
 	glutIdleFunc(idle);
 
 	// シェーダを読み込む
-	ShaderSource vs("main.vert", GL_VERTEX_SHADER);
-	ShaderSource fs("main.frag", GL_FRAGMENT_SHADER);
+	try {
+		ShaderSource vs("main.vert", GL_VERTEX_SHADER);
+		ShaderSource fs("main.frag", GL_FRAGMENT_SHADER);
 
-	VertexShader *cvs = (VertexShader *) vs.compile();
-	FragmentShader *cfs = (FragmentShader *) fs.compile();
+		VertexShader *cvs = (VertexShader *) vs.compile();
+		FragmentShader *cfs = (FragmentShader *) fs.compile();
 
-	as = new AttachedShader(*cvs, *cfs);
+		as = new AttachedShader(*cvs, *cfs);
+	}
+	catch (Exception &e) {
+		cout << e.getErrorMessage() << endl;
+	}
 
 	// 頂点配列をGPUに転送する
 	float *vertices;
