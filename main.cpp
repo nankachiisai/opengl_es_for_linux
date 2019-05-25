@@ -13,14 +13,14 @@
 #include "vec3.h"
 #include "mat4.h"
 #include "Exception.h"
+#include "ShaderSource.h"
+#include "CompiledShader.h"
+#include "AttachedShader.h"
 
 using namespace std;
 
 static void display(void);
 static void idle(void);
-static GLuint getShaderSource(const char *fileName, GLenum shaderType);
-static GLuint useShaders(GLuint VertShader, GLuint FragShader);
-static void freeShaders(GLuint VertShader, GLuint FragShader, GLuint program);
 static GLuint transferData(void *data, int num, GLenum bufferType);
 static void bindAttributeVariable(GLuint program, GLuint VBO, const char *name);
 static void bindUniformVariable4x4(GLuint program, float *data, const char *name);
@@ -45,7 +45,7 @@ static float expantionMatrix[] = {
 
 static Bunny *b;
 
-static GLuint program;
+static AttachedShader *as;
 static GLuint VBO; // Vertex Buffer Object
 static GLuint IBO; // Index Buffer Object
 static GLuint v_color;
@@ -82,23 +82,13 @@ int main(int argc, char *argv[]) {
 	glutIdleFunc(idle);
 
 	// シェーダを読み込む
-	GLuint vShader, fShader;
-	try {
-		vShader = getShaderSource("main.vert", GL_VERTEX_SHADER);
-		fShader = getShaderSource("main.frag", GL_FRAGMENT_SHADER);
-	}
-	catch (Exception &e) {
-		cout << e.getErrorMessage() << endl;
-		return -1;
-	}
+	ShaderSource vs("main.vert", GL_VERTEX_SHADER);
+	ShaderSource fs("main.frag", GL_FRAGMENT_SHADER);
 
-	try {
-		program = useShaders(vShader, fShader);
-	}
-	catch (Exception &e) {
-		cout << e.getErrorMessage() << endl;
-		return -1;
-	}
+	VertexShader *cvs = (VertexShader *) vs.compile();
+	FragmentShader *cfs = (FragmentShader *) fs.compile();
+
+	as = new AttachedShader(*cvs, *cfs);
 
 	// 頂点配列をGPUに転送する
 	float *vertices;
@@ -125,16 +115,15 @@ int main(int argc, char *argv[]) {
 	IBO = transferData(vertexIndices, indexNum, GL_ELEMENT_ARRAY_BUFFER);
 
 	// VBOとバーテックスシェーダのin変数とを関連付ける
-	bindAttributeVariable(program, VBO, "position");
-	bindAttributeVariable(program, v_color, "v_color");
-	bindAttributeVariable(program, normalVector, "normal");
+	bindAttributeVariable(as->getProgramNumber(), VBO, "position");
+	bindAttributeVariable(as->getProgramNumber(), v_color, "v_color");
+	bindAttributeVariable(as->getProgramNumber(), normalVector, "normal");
 
 	// メインループ
 	glutMainLoop();
 
 	// シェーダオブジェクト、シェーダプログラムを破棄する
-	freeShaders(vShader, fShader, program);
-	program = 0;
+	as->~AttachedShader();
 
 	// バッファを削除する
 	glDeleteBuffers(1, &VBO);
@@ -180,14 +169,14 @@ static void display(void) {
 	transformMatrix.multiply(rotationMatrix, expantionMatrix);
 	tmpMatrix.multiply(orthogonalMatrix, lookAtMatrix);
 	resultMatrix.multiply(tmpMatrix, transformMatrix);
-	bindUniformVariable4x4(program, resultMatrix.matrix, "transformMatrix");
+	bindUniformVariable4x4(as->getProgramNumber(), resultMatrix.matrix, "transformMatrix");
 
 	// 変換行列の逆行列を生成する
 	mat4 invMatrix(resultMatrix);
 	invMatrix.inverse();
 
 	// 逆行列をuniform変数に関連付ける
-	bindUniformVariable4x4(program , invMatrix.matrix, "invMatrix");
+	bindUniformVariable4x4(as->getProgramNumber(), invMatrix.matrix, "invMatrix");
 
 	// 描画
 	unsigned int *indices;
@@ -211,100 +200,6 @@ static void display(void) {
 
 void idle(void) {
 	glutPostRedisplay();
-}
-
-static GLuint getShaderSource(const char *fileName, GLenum shaderType) {
-	string filename_str(fileName);
-	ifstream f(filename_str, ios::in | ios::binary);
-	if (f.fail()) {
-		throw Exception("error: ifstream constructor\n");
-		return -1;
-	}
-	
-	// とりあえず1KB確保
-	int strsize = 1024;
-	string source(strsize, '\0');
-
-	// 終端までファイルを読み取る
-	int count = 0;
-	while (1) {
-		int readNum = strsize - count;
-		f.read(&source[count], readNum);
-		if (f.eof()) {
-			break;
-		}
-
-		count = strsize;
-		strsize *= 2;
-		source.resize(strsize, 0);
-	}
-
-	// シェーダオブジェクトを作成する
-	GLuint shader = glCreateShader(shaderType);
-
-	// コンパイル
-	const char* src = &source[0];
-	const int size = source.size();
-	glShaderSource(shader, 1, &src, &size);
-	glCompileShader(shader);
-
-	// コンパイルステータスをgetする
-	GLint compileStatus;
-	const int logSize = 1024;
-	string Log(logSize, '\0');
-	GLsizei length;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
-	if (compileStatus == GL_FALSE) {
-		glGetShaderInfoLog(shader, logSize * sizeof(GLchar), &length, &Log[0]);
-		string errorLog("Error; glGetShaderiv\n" + Log + "\n");
-		throw Exception(errorLog);
-		return -1;
-	}
-
-	// コンパイル済みシェーダオブジェクトを返す
-	return shader;
-}
-
-static GLuint useShaders(GLuint VertShader, GLuint FragShader) {
-	// シェーダプログラムを作成
-	GLuint shaderp = glCreateProgram();
-
-	// バーテックスシェーダとフラグメントシェーダをアタッチする
-	glAttachShader(shaderp, VertShader);
-	glAttachShader(shaderp, FragShader);
-
-	// シェーダをリンクする
-	glLinkProgram(shaderp);
-
-	// リンクステータスをgetする
-	GLint linkStatus;
-	const int logSize = 1024;
-	string log(logSize, '\0');
-	GLsizei length;
-	glGetProgramiv(shaderp, GL_LINK_STATUS, &linkStatus);
-	if (linkStatus == GL_FALSE) {
-		glGetProgramInfoLog(shaderp, logSize * sizeof(GLchar), &length, &log[0]);
-		string errorLog("error: glGetProgramiv\n" + log);
-		throw Exception(errorLog);
-		return -1;
-	}
-
-	// シェーダプログラムを適用する
-	glUseProgram(shaderp);
-
-	// シェーダプログラムを返す
-	return shaderp;
-}
-
-static void freeShaders(GLuint VertShader, GLuint FragShader, GLuint program) {
-	// シェーダオブジェクトを削除する
-	glDeleteShader(VertShader);
-	glDeleteShader(FragShader);
-
-	// シェーダプログラムを削除する
-	glDeleteProgram(program);
-
-	return;
 }
 
 static GLuint transferData(void *data, int num, GLenum bufferType) {

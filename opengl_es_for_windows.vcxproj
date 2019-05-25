@@ -126,13 +126,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AttachedShader.cpp" />
     <ClCompile Include="Bunny.cpp" />
+    <ClCompile Include="CompiledShader.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ShaderSource.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AttachedShader.h" />
     <ClInclude Include="Bunny.h" />
+    <ClInclude Include="CompiledShader.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="mat4.h" />
+    <ClInclude Include="ShaderSource.h" />
     <ClInclude Include="vec3.h" />
   </ItemGroup>
   <ItemGroup>
