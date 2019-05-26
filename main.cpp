@@ -90,6 +90,9 @@ int main(int argc, char *argv[]) {
 		FragmentShader *cfs = (FragmentShader *) fs.compile();
 
 		as = new AttachedShader(*cvs, *cfs);
+
+		cvs->~VertexShader();
+		cfs->~FragmentShader();
 	}
 	catch (Exception &e) {
 		cout << e.getErrorMessage() << endl;
