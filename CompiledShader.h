@@ -12,29 +12,25 @@ private:
 public:
 	CompiledShader(GLuint ShaderType, GLuint CompiledShaderNumber);
 	CompiledShader() {}
-	~CompiledShader();
+	virtual ~CompiledShader();
 	GLuint getCompiledShaderNumber();
 };
 
 class VertexShader : public CompiledShader {
 public:
-	VertexShader(GLuint CompiledShaderNumber) {
-		CompiledShader::CompiledShader(GL_VERTEX_SHADER, CompiledShaderNumber);
+	VertexShader(GLuint CompiledShaderNumber) : CompiledShader(GL_VERTEX_SHADER, CompiledShaderNumber) {
 	}
 
 	~VertexShader() {
-		CompiledShader::~CompiledShader();
 	}
 };
 
 class FragmentShader: public CompiledShader {
 public:
-	FragmentShader(GLuint CompiledShaderNumber) {
-		CompiledShader::CompiledShader(GL_FRAGMENT_SHADER, CompiledShaderNumber);
+	FragmentShader(GLuint CompiledShaderNumber) : CompiledShader(GL_FRAGMENT_SHADER, CompiledShaderNumber) {
 	}
 
 	~FragmentShader() {
-		CompiledShader::~CompiledShader();
 	}
 };
 
