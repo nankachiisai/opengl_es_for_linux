@@ -1,4 +1,5 @@
 #include "CompiledShader.h"
+#include <iostream>
 
 CompiledShader::CompiledShader(GLuint ShaderType, GLuint CompiledShaderNumber) {
 	this->ShaderType = ShaderType;
